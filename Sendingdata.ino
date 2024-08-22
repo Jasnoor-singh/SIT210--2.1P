@@ -2,62 +2,62 @@
 #include <WiFiNINA.h>
 #include <ThingSpeak.h>
 #include "secrets.h"
-char ssid[] = SSID;     // Your network SSID (name)
-char pass[] = PASSWORD;     // Your network password
+
+// Wi-Fi credentials from secrets.h
+char ssid[] = SSID;     // Your Wi-Fi network name (SSID)
+char pass[] = PASSWORD; // Your Wi-Fi network password
 
 WiFiClient client;
 
-unsigned long myChannelNumber = SECRET_CH_ID;
-const char * myWriteAPIKey = SECRET_WRITE_APIKEY;
+// ThingSpeak channel details from secrets.h
+unsigned long myChannelNumber = SECRET_CH_ID;        // ThingSpeak Channel ID
+const char * myWriteAPIKey = SECRET_WRITE_APIKEY;    // ThingSpeak Write API Key
 
-#define DHTPIN 2          // Pin where the DHT sensor is connected (change if necessary)
-#define DHTTYPE DHT22     // DHT 22
+// Define DHT sensor configuration
+#define DHTPIN 2          // Pin where the DHT22 sensor is connected (update if needed)
+#define DHTTYPE DHT22     // Using DHT22 sensor
 
-DHT dht(DHTPIN, DHTTYPE);
+DHT dhtSensor(DHTPIN, DHTTYPE); // Create a DHT object
 
 void setup() {
   Serial.begin(9600);  
-  dht.begin();          // Start the DHT sensor
+  dhtSensor.begin();          // Initialize the DHT sensor
 
-  // Connect to Wi-Fi
-  Serial.print("Connecting to WiFi...");
+  // Connect to Wi-Fi network
+  Serial.print("Attempting to connect to Wi-Fi...");
   while (WiFi.begin(ssid, pass) != WL_CONNECTED) {
-    delay(5000);
+    delay(5000); // Retry every 5 seconds
     Serial.print(".");
   }
-  Serial.println("Connected!");
+  Serial.println("Connected to Wi-Fi!");
 
-  ThingSpeak.begin(client);  // Initialize ThingSpeak
+  ThingSpeak.begin(client);  // Initialize connection to ThingSpeak
 }
-
 void loop() {
-  // Reading temperature data
-  float temperature = dht.readTemperature();
-
-  // Check if the read failed and exit early (to try again)
-  if (isnan(temperature)) {
-    Serial.println("Failed to read from DHT sensor!");
-    return;
+  // Read temperature data from the sensor
+  float currentTemperature = dhtSensor.readTemperature();
+  // Check if reading is valid
+  if (isnan(currentTemperature)) {
+    Serial.println("Error: Could not read from DHT sensor.");
+    return; // Retry reading in the next loop
   }
-
-  // Print the temperature to the Serial Monitor
-  Serial.print("Temperature: ");
-  Serial.print(temperature);
+  // Display the temperature reading in the Serial Monitor
+  Serial.print("Current Temperature: ");
+  Serial.print(currentTemperature);
   Serial.println(" °C");
 
-  // Update ThingSpeak field 1 with the temperature data
-  ThingSpeak.setField(1, temperature);
+  // Send temperature data to ThingSpeak (Field 1)
+  ThingSpeak.setField(1, currentTemperature);
 
-  // Write the data to ThingSpeak
-  int x = ThingSpeak.writeFields(myChannelNumber, myWriteAPIKey);
+  // Write data to ThingSpeak
+  int statusCode = ThingSpeak.writeFields(myChannelNumber, myWriteAPIKey);
 
-  if (x == 200) {
-    Serial.println("Temperature successfully sent to ThingSpeak.");
+  // Check if data was successfully sent
+  if (statusCode == 200) {
+    Serial.println("Temperature data sent to ThingSpeak successfully.");
   } else {
-    Serial.println("Error sending temperature data to ThingSpeak. HTTP error code: " + String(x));
+    Serial.println("Failed to send data to ThingSpeak. HTTP error code: " + String(statusCode));
   }
-
-  // Wait 60 seconds before sending data again
-  delay(6000);
+  // Wait for 5 seconds before the next reading
+  delay(5000);
 }
-
